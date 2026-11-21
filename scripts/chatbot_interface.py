@@ -26,7 +26,7 @@ def _response_for(tag: str) -> str:
     return "I'm not sure how to respond to that yet."
 
 
-def chatbot_response(user_input: str) -> str:
+def chatbot_response(user_input: str, context: dict | None = None) -> str:
     """Classify a message and route it to the matching assistant feature."""
     message = user_input.strip()
     if not message:
@@ -44,18 +44,25 @@ def chatbot_response(user_input: str) -> str:
     except (FileNotFoundError, ImportError, ModuleNotFoundError):
         return "The intent model isn't ready yet. Install the requirements and run `python -m scripts.nlp_engine` first."
 
+    context = context or {}
     if tag == "weather":
         city_match = re.search(r"\b(?:in|for)\s+([\w .'-]+?)(?:\?|$)", message, re.IGNORECASE)
-        city = city_match.group(1).strip(" .?!") if city_match else ""
+        city = str(context.get("city") or (city_match.group(1).strip(" .?!") if city_match else ""))
         return get_weather(city) if city else "Which city would you like the weather for?"
     if tag == "reminder":
+        reminder_text = context.get("reminder_text")
+        reminder_time = context.get("reminder_time")
+        if reminder_text and reminder_time:
+            return add_reminder(str(reminder_text), str(reminder_time))
         match = re.search(r"remind me to\s+(.+?)\s+(?:at|on)\s+(.+)$", message, re.IGNORECASE)
         if match:
             return add_reminder(match.group(1), match.group(2))
         return "Tell me what to remind you about and when. You can say, 'Remind me to buy groceries at 6 PM'."
-    if tag == "reminders":
+    if tag in {"reminders", "view_reminders"}:
         return view_reminders()
     if tag == "delete_reminder":
+        if context.get("reminder_text"):
+            return delete_reminder(str(context["reminder_text"]))
         match = re.search(r"delete (?:the )?reminder(?: for)?\s+(.+)$", message, re.IGNORECASE)
         return delete_reminder(match.group(1)) if match else "Which reminder should I delete?"
     if tag == "knowledge":
