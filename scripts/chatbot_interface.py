@@ -71,6 +71,8 @@ def chatbot_response(user_input: str, context: dict | None = None) -> str:
     context = context or {}
     if tag == "weather":
         city_match = re.search(r"\b(?:in|for)\s+([\w .'-]+?)(?:\?|$)", message, re.IGNORECASE)
+        if not city_match:
+            city_match = re.match(r"\s*(?:weather|forecast)\s+([\w .'-]+?)\s*[?!.,]*$", message, re.IGNORECASE)
         city = str(context.get("city") or (city_match.group(1).strip(" .?!") if city_match else ""))
         return get_weather(city) if city else "Which city would you like the weather for?"
     if tag == "reminder":
