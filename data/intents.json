@@ -94,6 +94,16 @@
       "responses": [
         "Here's a fun fact: honey can remain edible for a very long time when stored sealed."
       ]
+    },
+    {
+      "tag": "news",
+      "patterns": [
+        "What's in the news?",
+        "Show me today's headlines",
+        "Give me the latest news",
+        "Tell me the top news stories"
+      ],
+      "responses": ["I'll get the latest headlines for you."]
     }
   ]
 }

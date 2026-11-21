@@ -5,8 +5,7 @@ import random
 import re
 from pathlib import Path
 
-from scripts.api_integration import get_weather
-from scripts.nlp_engine import predict_intent
+from scripts.api_integration import get_news, get_weather
 from scripts.task_manager import add_reminder, delete_reminder, view_reminders
 
 
@@ -26,6 +25,28 @@ def _response_for(tag: str) -> str:
     return "I'm not sure how to respond to that yet."
 
 
+def _fallback_intent(message: str) -> str:
+    """Provide basic local-demo routing before trained model files exist."""
+    text = message.casefold()
+    if any(word in text for word in ("weather", "forecast", "temperature", "rain")):
+        return "weather"
+    if any(word in text for word in ("headline", "news")):
+        return "news"
+    if "remind" in text or "reminder" in text:
+        if any(word in text for word in ("show", "list", "view", "what")):
+            return "reminders"
+        if any(word in text for word in ("delete", "remove", "cancel")):
+            return "delete_reminder"
+        return "reminder"
+    if any(word in text for word in ("fun fact", "interesting fact", "tell me something")):
+        return "knowledge"
+    if any(word in text for word in ("bye", "goodbye", "see you", "quit")):
+        return "goodbye"
+    if any(word in text for word in ("hi", "hello", "hey", "good morning", "good afternoon")):
+        return "greeting"
+    return "unknown"
+
+
 def chatbot_response(user_input: str, context: dict | None = None) -> str:
     """Classify a message and route it to the matching assistant feature."""
     message = user_input.strip()
@@ -39,10 +60,13 @@ def chatbot_response(user_input: str, context: dict | None = None) -> str:
         return delete_reminder(message[len("delete reminder "):])
 
     try:
+        # Import lazily so the local web demo can run without TensorFlow/model files.
+        from scripts.nlp_engine import predict_intent
+
         prediction = predict_intent(message)
         tag = prediction["tag"] if isinstance(prediction, dict) else prediction
     except (FileNotFoundError, ImportError, ModuleNotFoundError):
-        return "The intent model isn't ready yet. Install the requirements and run `python -m scripts.nlp_engine` first."
+        tag = _fallback_intent(message)
 
     context = context or {}
     if tag == "weather":
@@ -67,6 +91,10 @@ def chatbot_response(user_input: str, context: dict | None = None) -> str:
         return delete_reminder(match.group(1)) if match else "Which reminder should I delete?"
     if tag == "knowledge":
         return "Here's a fun fact: honey can remain edible for a very long time when stored sealed."
+    if tag == "news":
+        return get_news()
+    if tag == "unknown":
+        return "I didn't catch that. Try asking about weather, reminders, news, or a fun fact."
     return _response_for(str(tag))
 
 
