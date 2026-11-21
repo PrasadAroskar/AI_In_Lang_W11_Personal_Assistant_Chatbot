@@ -2,6 +2,7 @@
 
 import json
 import pickle
+import re
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +13,7 @@ from sklearn.preprocessing import LabelEncoder
 from imblearn.over_sampling import SMOTE
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.models import Sequential, load_model
+from scripts.text_preprocessing import preprocess_text
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -19,6 +21,7 @@ INTENTS_PATH = PROJECT_ROOT / "data" / "intents.json"
 MODEL_DIR = PROJECT_ROOT / "models"
 MODEL_PATH = MODEL_DIR / "nlp_model.h5"
 VECTORIZER_PATH = MODEL_DIR / "tokenizer.pickle"
+VECTORIZER_COMPAT_PATH = MODEL_DIR / "vectorizer.pickle"
 LABEL_ENCODER_PATH = MODEL_DIR / "label_encoder.pickle"
 
 
@@ -65,6 +68,7 @@ def build_model(input_size: int, class_count: int) -> Sequential:
 def train_model(epochs: int = 100, batch_size: int = 8):
     """Train the classifier and save its model, vectorizer, and label encoder."""
     patterns, tags = load_training_data()
+    patterns = [preprocess_text(pattern) for pattern in patterns]
     label_encoder = LabelEncoder()
     labels = label_encoder.fit_transform(tags)
     vectorizer = TfidfVectorizer()
@@ -107,6 +111,9 @@ def train_model(epochs: int = 100, batch_size: int = 8):
     model.save(MODEL_PATH)
     with VECTORIZER_PATH.open("wb") as file:
         pickle.dump(vectorizer, file)
+    # The textbook uses both names in different sections; write both for compatibility.
+    with VECTORIZER_COMPAT_PATH.open("wb") as file:
+        pickle.dump(vectorizer, file)
     with LABEL_ENCODER_PATH.open("wb") as file:
         pickle.dump(label_encoder, file)
     return model
@@ -114,21 +121,35 @@ def train_model(epochs: int = 100, batch_size: int = 8):
 
 def predict_intent(text: str) -> dict:
     """Return the predicted intent tag and confidence for a message."""
-    if not MODEL_PATH.exists() or not VECTORIZER_PATH.exists() or not LABEL_ENCODER_PATH.exists():
+    vectorizer_path = VECTORIZER_COMPAT_PATH if VECTORIZER_COMPAT_PATH.exists() else VECTORIZER_PATH
+    if not MODEL_PATH.exists() or not vectorizer_path.exists() or not LABEL_ENCODER_PATH.exists():
         raise FileNotFoundError("Model artifacts are missing. Run `python -m scripts.nlp_engine` first.")
 
-    with VECTORIZER_PATH.open("rb") as file:
+    with vectorizer_path.open("rb") as file:
         vectorizer = pickle.load(file)
     with LABEL_ENCODER_PATH.open("rb") as file:
         label_encoder = pickle.load(file)
     model = load_model(MODEL_PATH)
-    features = vectorizer.transform([text]).toarray()
+    features = vectorizer.transform([preprocess_text(text)]).toarray()
     probabilities = model.predict(features, verbose=0)[0]
     index = int(np.argmax(probabilities))
     return {
         "tag": str(label_encoder.inverse_transform([index])[0]),
         "confidence": float(probabilities[index]),
     }
+
+
+def extract_entities(text: str) -> dict:
+    """Extract simple city and reminder details from a message."""
+    entities = {}
+    city = re.search(r"\b(?:in|for)\s+([\w .'-]+?)(?:\?|$)", text, re.IGNORECASE)
+    reminder = re.search(r"remind me to\s+(.+?)\s+(?:at|on)\s+(.+)$", text, re.IGNORECASE)
+    if city:
+        entities["city"] = city.group(1).strip(" .?!")
+    if reminder:
+        entities["reminder_text"] = reminder.group(1).strip()
+        entities["reminder_time"] = reminder.group(2).strip()
+    return entities
 
 
 if __name__ == "__main__":
