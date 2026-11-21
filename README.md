@@ -11,7 +11,7 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-Open [http://127.0.0.1:5000](http://127.0.0.1:5000). To stop the server, press `Ctrl+C` in its terminal. Restart it after changing Python code.
+Open [http://127.0.0.1:5050](http://127.0.0.1:5050). The app uses port 5050 by default to avoid common macOS port 5000 conflicts. To stop the server, press `Ctrl+C` in its terminal. Restart it after changing Python code.
 
 The browser chat supports greetings, fun facts, weather requests, reminders, reminder listing and deletion, and news requests. If model artifacts have not been trained yet, it uses a small keyword fallback for the local demo. Weather and news requests need API keys. Reminders are saved to `data/reminders.json`; this project stores reminder details but does not send notifications.
 
