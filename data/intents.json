@@ -62,6 +62,38 @@
         "When would you like the reminder to be set?",
         "Of course. What should I remind you about, and when?"
       ]
+    },
+    {
+      "tag": "reminders",
+      "patterns": [
+        "Show my reminders",
+        "List my reminders",
+        "What reminders do I have?",
+        "View reminders"
+      ],
+      "responses": ["Here are your reminders."]
+    },
+    {
+      "tag": "delete_reminder",
+      "patterns": [
+        "Delete a reminder",
+        "Remove a reminder",
+        "Delete my reminder to buy groceries",
+        "Cancel a reminder"
+      ],
+      "responses": ["Which reminder would you like me to delete?"]
+    },
+    {
+      "tag": "knowledge",
+      "patterns": [
+        "Tell me a fun fact",
+        "Share some general knowledge",
+        "Do you know any interesting facts?",
+        "Tell me something interesting"
+      ],
+      "responses": [
+        "Here's a fun fact: honey can remain edible for a very long time when stored sealed."
+      ]
     }
   ]
 }
