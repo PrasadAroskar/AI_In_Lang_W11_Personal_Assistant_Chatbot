@@ -2,16 +2,19 @@
 
 import json
 import logging
+import os
+import secrets
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template_string, request
+from flask import Flask, jsonify, render_template_string, request, session
 
 from scripts.chatbot_interface import chatbot_response
 
 
 app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
 app.logger.setLevel(logging.INFO)
 FEEDBACK_PATH = Path(__file__).resolve().parent / "data" / "feedback.json"
 
@@ -79,12 +82,33 @@ def chat():
         if isinstance(payload.get(key), str)
     }
     started = time.perf_counter()
+    pending_action = session.pop("pending_action", None)
+    intent_override = None
+    if pending_action == "weather":
+        context.setdefault("city", message)
+        intent_override = "weather"
+    elif pending_action == "reminder":
+        if not message.casefold().startswith(("remind me", "set a reminder", "add a reminder")):
+            message = f"remind me to {message}"
+        intent_override = "reminder"
+    elif pending_action == "delete_reminder":
+        if not message.casefold().startswith(("delete reminder", "delete the reminder", "remove reminder")):
+            context.setdefault("reminder_text", message)
+        intent_override = "delete_reminder"
+
     try:
-        response = chatbot_response(message, context=context)
+        response = chatbot_response(message, context=context, intent_override=intent_override)
     except Exception:
         app.logger.exception("Chat request failed")
         return jsonify({"error": "The chatbot could not process this request."}), 500
     app.logger.info("Chat request completed (input_chars=%d, duration_ms=%.1f)", len(message), (time.perf_counter() - started) * 1000)
+    lowered_response = response.casefold()
+    if "which city would you like the weather" in lowered_response:
+        session["pending_action"] = "weather"
+    elif "tell me what to remind you" in lowered_response:
+        session["pending_action"] = "reminder"
+    elif "which reminder" in lowered_response:
+        session["pending_action"] = "delete_reminder"
     return jsonify({"response": response})
 
 

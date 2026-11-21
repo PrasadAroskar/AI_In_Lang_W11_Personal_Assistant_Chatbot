@@ -47,7 +47,7 @@ def _fallback_intent(message: str) -> str:
     return "unknown"
 
 
-def chatbot_response(user_input: str, context: dict | None = None) -> str:
+def chatbot_response(user_input: str, context: dict | None = None, intent_override: str | None = None) -> str:
     """Classify a message and route it to the matching assistant feature."""
     message = user_input.strip()
     if not message:
@@ -59,14 +59,17 @@ def chatbot_response(user_input: str, context: dict | None = None) -> str:
     if lowered.startswith("delete reminder "):
         return delete_reminder(message[len("delete reminder "):])
 
-    try:
-        # Import lazily so the local web demo can run without TensorFlow/model files.
-        from scripts.nlp_engine import predict_intent
+    if intent_override:
+        tag = intent_override
+    else:
+        try:
+            # Import lazily so the local web demo can run without TensorFlow/model files.
+            from scripts.nlp_engine import predict_intent
 
-        prediction = predict_intent(message)
-        tag = prediction["tag"] if isinstance(prediction, dict) else prediction
-    except (FileNotFoundError, ImportError, ModuleNotFoundError):
-        tag = _fallback_intent(message)
+            prediction = predict_intent(message)
+            tag = prediction["tag"] if isinstance(prediction, dict) else prediction
+        except (FileNotFoundError, ImportError, ModuleNotFoundError):
+            tag = _fallback_intent(message)
 
     context = context or {}
     if tag == "weather":
